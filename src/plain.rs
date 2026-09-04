@@ -50,6 +50,9 @@ pub struct Cache {
     // between maintenance, the actual file count may temporarily
     // exceed that capacity.
     capacity: usize,
+
+    // Linux custom flags for opening cache hits.
+    open_custom_flags: i32,
 }
 
 impl CacheDir for Cache {
@@ -72,12 +75,26 @@ impl CacheDir for Cache {
     fn capacity(&self) -> usize {
         self.capacity
     }
+
+    #[inline]
+    fn open_custom_flags(&self) -> i32 {
+        self.open_custom_flags
+    }
 }
 
 impl Cache {
     /// Returns a new cache for approximately `capacity` files in
     /// `base_dir`.
     pub fn new(base_dir: PathBuf, capacity: usize) -> Cache {
+        Self::new_with_open_custom_flags(base_dir, capacity, 0)
+    }
+
+    /// Returns a new cache with Linux custom flags for opening cache hits.
+    pub fn new_with_open_custom_flags(
+        base_dir: PathBuf,
+        capacity: usize,
+        open_custom_flags: i32,
+    ) -> Cache {
         let mut temp_dir = base_dir;
 
         temp_dir.push(TEMP_SUBDIR);
@@ -85,6 +102,7 @@ impl Cache {
             temp_dir,
             trigger: PeriodicTrigger::new((capacity / MAINTENANCE_SCALE) as u64),
             capacity,
+            open_custom_flags,
         }
     }
 

@@ -94,6 +94,23 @@ fn validate_file_name(name: &str) -> Result<&str> {
     }
 }
 
+#[cfg(target_os = "linux")]
+fn open_cache_file(path: &Path, open_custom_flags: i32) -> Result<File> {
+    use std::os::unix::fs::OpenOptionsExt;
+
+    let mut options = std::fs::OpenOptions::new();
+    options.read(true);
+    if open_custom_flags != 0 {
+        options.custom_flags(open_custom_flags);
+    }
+    options.open(path)
+}
+
+#[cfg(not(target_os = "linux"))]
+fn open_cache_file(path: &Path, _open_custom_flags: i32) -> Result<File> {
+    File::open(path)
+}
+
 /// The `CacheDir` trait drives the actual management of a single
 /// cache directory.
 pub(crate) trait CacheDir {
@@ -106,6 +123,10 @@ pub(crate) trait CacheDir {
     fn trigger(&self) -> &PeriodicTrigger;
     /// Returns the cache's directory capacity (in object count).
     fn capacity(&self) -> usize;
+    /// Returns Linux custom flags for opening cache-hit files.
+    fn open_custom_flags(&self) -> i32 {
+        0
+    }
 
     /// Return the path for the cache directory's temporary
     /// subdirectory, after making sure the directory exists.
@@ -124,7 +145,7 @@ pub(crate) trait CacheDir {
         let mut target = self.base_dir().into_owned();
         target.push(name);
 
-        match File::open(&target) {
+        match open_cache_file(&target, self.open_custom_flags()) {
             Ok(file) => {
                 let _ = raw_cache::ensure_file_touched(&file);
                 Ok(Some(file))
