@@ -73,6 +73,7 @@ impl ReadSide for ShardedCache {
 #[derivative(Debug)]
 pub struct ReadOnlyCacheBuilder {
     stack: Vec<Box<dyn ReadSide>>,
+    open_custom_flags: i32,
 
     #[derivative(Debug = "ignore")]
     consistency_checker: Option<ConsistencyChecker>,
@@ -175,6 +176,14 @@ impl ReadOnlyCacheBuilder {
         self
     }
 
+    /// Sets Linux custom flags for opening cache hits.
+    ///
+    /// Custom flags are ignored on non-Linux platforms.
+    pub fn open_custom_flags(&mut self, open_custom_flags: i32) -> &mut Self {
+        self.open_custom_flags = open_custom_flags;
+        self
+    }
+
     /// Adds a new cache directory at `path` to the end of the cache
     /// builder's search list.
     ///
@@ -193,10 +202,12 @@ impl ReadOnlyCacheBuilder {
     /// merely a directory of files where the files' names match their
     /// key's name.
     pub fn plain(&mut self, path: impl AsRef<Path>) -> &mut Self {
-        self.stack.push(Box::new(PlainCache::new(
-            path.as_ref().to_owned(),
-            usize::MAX,
-        )));
+        self.stack
+            .push(Box::new(PlainCache::new_with_open_custom_flags(
+                path.as_ref().to_owned(),
+                usize::MAX,
+                self.open_custom_flags,
+            )));
 
         self
     }
@@ -218,11 +229,13 @@ impl ReadOnlyCacheBuilder {
     /// Adds a new sharded cache directory at `path` to the end of the
     /// cache builder's search list.
     pub fn sharded(&mut self, path: impl AsRef<Path>, num_shards: usize) -> &mut Self {
-        self.stack.push(Box::new(ShardedCache::new(
-            path.as_ref().to_owned(),
-            num_shards,
-            usize::MAX,
-        )));
+        self.stack
+            .push(Box::new(ShardedCache::new_with_open_custom_flags(
+                path.as_ref().to_owned(),
+                num_shards,
+                usize::MAX,
+                self.open_custom_flags,
+            )));
         self
     }
 

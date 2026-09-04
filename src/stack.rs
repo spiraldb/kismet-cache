@@ -120,6 +120,7 @@ impl FullCache for ShardedCache {
 pub struct CacheBuilder {
     write_side: Option<Arc<dyn FullCache>>,
     auto_sync: bool,
+    open_custom_flags: i32,
 
     #[derivative(Debug = "ignore")]
     consistency_checker: Option<ConsistencyChecker>,
@@ -132,6 +133,7 @@ impl Default for CacheBuilder {
         CacheBuilder {
             write_side: None,
             auto_sync: true,
+            open_custom_flags: 0,
             consistency_checker: None,
             read_side: Default::default(),
         }
@@ -294,10 +296,13 @@ impl CacheBuilder {
     /// Sets the read-write cache directory to a plain directory at
     /// `path`, with a target file count of up to `capacity`.
     pub fn plain_writer(&mut self, path: impl AsRef<Path>, capacity: usize) -> &mut Self {
-        let _ = self.write_side.insert(Arc::new(PlainCache::new(
-            path.as_ref().to_owned(),
-            capacity,
-        )));
+        let _ = self
+            .write_side
+            .insert(Arc::new(PlainCache::new_with_open_custom_flags(
+                path.as_ref().to_owned(),
+                capacity,
+                self.open_custom_flags,
+            )));
         self
     }
 
@@ -310,11 +315,23 @@ impl CacheBuilder {
         num_shards: usize,
         total_capacity: usize,
     ) -> &mut Self {
-        let _ = self.write_side.insert(Arc::new(ShardedCache::new(
-            path.as_ref().to_owned(),
-            num_shards,
-            total_capacity,
-        )));
+        let _ = self
+            .write_side
+            .insert(Arc::new(ShardedCache::new_with_open_custom_flags(
+                path.as_ref().to_owned(),
+                num_shards,
+                total_capacity,
+                self.open_custom_flags,
+            )));
+        self
+    }
+
+    /// Sets Linux custom flags for opening cache hits.
+    ///
+    /// Custom flags are ignored on non-Linux platforms.
+    pub fn open_custom_flags(&mut self, open_custom_flags: i32) -> &mut Self {
+        self.open_custom_flags = open_custom_flags;
+        self.read_side.open_custom_flags(open_custom_flags);
         self
     }
 

@@ -69,6 +69,8 @@ pub struct Cache {
     num_shards: usize,
     // Capacity for each shard (rounded up to an integer), at least 1.
     shard_capacity: usize,
+    // Linux custom flags for opening cache hits.
+    open_custom_flags: i32,
 }
 
 /// Converts a shard id to a subdirectory name.
@@ -90,6 +92,7 @@ struct Shard {
     shard_dir: PathBuf,
     trigger: PeriodicTrigger,
     capacity: usize,
+    open_custom_flags: i32,
 }
 
 impl Shard {
@@ -103,6 +106,7 @@ impl Shard {
             shard_dir,
             trigger: self.trigger,
             capacity: self.capacity,
+            open_custom_flags: self.open_custom_flags,
         }
     }
 
@@ -138,12 +142,27 @@ impl CacheDir for Shard {
     fn capacity(&self) -> usize {
         self.capacity
     }
+
+    #[inline]
+    fn open_custom_flags(&self) -> i32 {
+        self.open_custom_flags
+    }
 }
 
 impl Cache {
     /// Returns a new cache for approximately `total_capacity` files,
     /// stores in `num_shards` subdirectories of `base_dir`.
-    pub fn new(base_dir: PathBuf, mut num_shards: usize, mut total_capacity: usize) -> Cache {
+    pub fn new(base_dir: PathBuf, num_shards: usize, total_capacity: usize) -> Cache {
+        Self::new_with_open_custom_flags(base_dir, num_shards, total_capacity, 0)
+    }
+
+    /// Returns a new cache with Linux custom flags for opening cache hits.
+    pub fn new_with_open_custom_flags(
+        base_dir: PathBuf,
+        mut num_shards: usize,
+        mut total_capacity: usize,
+        open_custom_flags: i32,
+    ) -> Cache {
         // We assume at least two shards.
         if num_shards < 2 {
             num_shards = 2;
@@ -166,6 +185,7 @@ impl Cache {
             trigger,
             num_shards,
             shard_capacity,
+            open_custom_flags,
         }
     }
 
@@ -229,6 +249,7 @@ impl Cache {
             shard_dir: dir,
             trigger: self.trigger,
             capacity: self.shard_capacity,
+            open_custom_flags: self.open_custom_flags,
         }
     }
 
